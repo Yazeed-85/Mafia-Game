@@ -2,30 +2,47 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>إدارة المافيا - الهوست</title>
     <style>
-        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; transition: background 0.5s ease; padding-top: 20px;}
+        
+        /* --- شاشة اللوبي والإعدادات --- */
+        #setupScreen { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 20px; box-sizing: border-box; }
         .header { text-align: center; margin-bottom: 20px; }
         .pin-display { font-size: 3rem; font-weight: bold; color: #dc2626; letter-spacing: 5px; background: rgba(0,0,0,0.5); padding: 10px 40px; border-radius: 10px; border: 2px dashed #dc2626; margin: 10px 0;}
         
         .panel { background: #222; width: 100%; max-width: 600px; padding: 20px; border-radius: 10px; border: 1px solid #444; margin-bottom: 20px; box-sizing: border-box;}
         h2 { color: #aaa; margin-top: 0; font-size: 1.2rem; border-bottom: 1px solid #444; padding-bottom: 10px;}
         
-        /* إعدادات اللعبة */
         .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1.1rem;}
-        select { padding: 8px; font-size: 1rem; border-radius: 5px; background: #333; color: white; border: 1px solid #555; width: 180px;}
+        select { padding: 8px; font-size: 1rem; border-radius: 5px; background: #333; color: white; border: 1px solid #555; width: 180px; outline: none;}
         
-        /* قائمة اللاعبين */
-        .players-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+        .players-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .player-badge { background: #333; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; border-right: 4px solid #4b5563;}
         .player-badge.is-host { border-color: #dc2626; }
 
-        .btn-start { background: #dc2626; color: white; border: none; padding: 15px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; transition: 0.2s;}
+        .btn-start { background: #dc2626; color: white; border: none; padding: 15px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; max-width: 600px; transition: 0.2s; box-shadow: 0 5px 15px rgba(220, 38, 38, 0.3);}
         .btn-start:active { transform: scale(0.95); }
-        .btn-reshuffle { background: #b45309; margin-top: 15px;}
+
+        /* --- شاشة اللعب والبطاقة (مثل اللاعبين) --- */
+        #gameScreen { display: none; width: 100%; flex-direction: column; align-items: center; }
+        .judge-banner { background: #78350f; color: #fde68a; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
+        .instruction { color: #888; margin-bottom: 20px; font-size: 1.1rem; text-align: center;}
+
+        /* البطاقة ثلاثية الأبعاد */
+        .card-container { width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
+        .card-inner.flipped { transform: rotateY(180deg); }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.6); border: 2px solid #333; }
+        .card-front { background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #222 10px, #222 20px); color: #555; font-size: 5rem; font-weight: bold; }
+        .card-back { background: #222; transform: rotateY(180deg); padding: 20px; box-sizing: border-box; }
         
-        #roleDisplay { display: none; font-size: 1.5rem; font-weight: bold; text-align: center; margin-top: 20px; padding: 20px; border-radius: 10px;}
+        .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);}
+        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 10px;}
+
+        .btn-end { background: transparent; border: 2px solid #555; color: #aaa; padding: 12px 30px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 40px; transition: 0.2s;}
+        .btn-end:hover { background: #333; color: #fff; }
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
@@ -52,12 +69,14 @@
         const playersRef = ref(db, `mafia_rooms/${pin}/players`);
         const settingsRef = ref(db, `mafia_rooms/${pin}/settings`);
 
-        set(roomRef, { settings: { status: 'waiting', timestamp: Date.now() } });
+        // تهيئة الغرفة عند الدخول
+        set(roomRef, { settings: { status: 'waiting', timestamp: Date.now(), judgeName: '' } });
         set(ref(db, `mafia_rooms/${pin}/players/${myId}`), { name: myName, role: '', isHost: true });
         onDisconnect(roomRef).remove(); 
 
         let playersData = {};
 
+        // متابعة دخول اللاعبين
         onValue(playersRef, (snapshot) => {
             if (snapshot.exists()) {
                 playersData = snapshot.val();
@@ -66,13 +85,21 @@
             }
         });
 
+        // متابعة حالة اللعبة لتبديل الشاشات
         onValue(settingsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const settings = snapshot.val();
                 if (settings.status === 'distributed' && playersData[myId]) {
-                    showMyRole(playersData[myId].role);
+                    // إخفاء اللوبي وإظهار شاشة اللعب
+                    document.getElementById('setupScreen').style.display = 'none';
+                    document.getElementById('gameScreen').style.display = 'flex';
+                    document.getElementById('judgeName').innerText = settings.judgeName;
+                    setupCard(playersData[myId].role);
                 } else {
-                    document.getElementById('roleDisplay').style.display = 'none';
+                    // العودة للوبي
+                    document.getElementById('setupScreen').style.display = 'flex';
+                    document.getElementById('gameScreen').style.display = 'none';
+                    document.body.style.backgroundColor = '#111';
                 }
             }
         });
@@ -81,7 +108,6 @@
             const list = document.getElementById('playersList');
             const count = document.getElementById('playerCount');
             list.innerHTML = '';
-            
             const pKeys = Object.keys(playersData);
             count.innerText = pKeys.length;
 
@@ -91,11 +117,10 @@
             });
         }
 
-        // تحديث قائمة القاضي المنسدلة
         function updateJudgeSelect() {
             const judgeSelect = document.getElementById('judgeSelect');
-            const currentValue = judgeSelect.value;
-            judgeSelect.innerHTML = '';
+            const currentValue = judgeSelect.value || 'random';
+            judgeSelect.innerHTML = '<option value="random">🎲 عشوائي (يُوزع سرياً)</option>';
             
             Object.keys(playersData).forEach(key => {
                 const option = document.createElement('option');
@@ -103,44 +128,42 @@
                 option.text = playersData[key].name + (key === myId ? " (أنا)" : "");
                 judgeSelect.appendChild(option);
             });
-            // استعادة الاختيار السابق إن وجد
-            if (playersData[currentValue]) judgeSelect.value = currentValue;
+            
+            if (currentValue === 'random' || playersData[currentValue]) {
+                judgeSelect.value = currentValue;
+            }
         }
 
-        window.distributeRoles = async function(isReshuffle = false) {
-            if (isReshuffle && !confirm("هل أنت متأكد من إعادة خلط وتوزيع الأدوار للجميع؟")) return;
-
+        // خوارزمية التوزيع الذكية (تدعم العشوائية)
+        window.distributeRoles = async function() {
             const pKeys = Object.keys(playersData);
             const judgeId = document.getElementById('judgeSelect').value;
             const numMafia = parseInt(document.getElementById('mafiaCount').value);
 
-            // التأكد من الحد الأدنى للعب
-            if (pKeys.length < 4) {
-                alert("اللعبة تحتاج 4 لاعبين كحد أدنى للمتعة (بمن فيهم القاضي)!");
+            // حساب العدد الأدنى (مافيا + دكتور + محقق + قاضي)
+            const minPlayers = numMafia + 3; 
+            if (pKeys.length < minPlayers) {
+                alert(`اللعبة تحتاج ${minPlayers} لاعبين على الأقل بهذه الإعدادات!`);
                 return;
             }
 
             let playersToAssign = [];
+            let rolesPool = [];
+            let finalJudgeName = "";
             let updates = {};
 
-            // تعيين القاضي أولاً
-            pKeys.forEach(key => {
-                if (key === judgeId) {
-                    updates[`mafia_rooms/${pin}/players/${key}/role`] = 'القاضي';
-                } else {
-                    playersToAssign.push(key);
-                }
-            });
-
-            // التأكد أن هناك لاعبين كافين بعد استبعاد القاضي
-            const minimumRequired = numMafia + 2; // (مافيا + دكتور + محقق) كحد أدنى
-            if (playersToAssign.length < minimumRequired) {
-                alert(`تحتاج على الأقل ${minimumRequired + 1} لاعبين (بما فيهم القاضي) لتوزيع ${numMafia} مافيا ودكتور ومحقق!`);
-                return;
+            if (judgeId !== 'random') {
+                // تعيين القاضي المختار
+                updates[`mafia_rooms/${pin}/players/${judgeId}/role`] = 'القاضي';
+                finalJudgeName = playersData[judgeId].name;
+                pKeys.forEach(key => { if (key !== judgeId) playersToAssign.push(key); });
+            } else {
+                // القاضي عشوائي، جميع اللاعبين يدخلون في السحب
+                playersToAssign = [...pKeys];
+                rolesPool.push("القاضي");
             }
 
-            // تجهيز كروت الأدوار للورق المتبقي
-            let rolesPool = [];
+            // إضافة الأدوار الأساسية
             for(let i=0; i<numMafia; i++) rolesPool.push("مافيا");
             rolesPool.push("دكتور");
             rolesPool.push("محقق");
@@ -150,67 +173,136 @@
                 rolesPool.push("مواطن");
             }
 
-            // خوارزمية الخلط العشوائي
+            // خلط قوي للأدوار
             rolesPool.sort(() => Math.random() - 0.5);
             rolesPool.sort(() => Math.random() - 0.5); 
 
-            // ربط الكروت باللاعبين
+            // توزيع الكروت المخلوطة
             playersToAssign.forEach((playerKey, index) => {
-                updates[`mafia_rooms/${pin}/players/${playerKey}/role`] = rolesPool[index];
+                const assignedRole = rolesPool[index];
+                updates[`mafia_rooms/${pin}/players/${playerKey}/role`] = assignedRole;
+                if (assignedRole === "القاضي") {
+                    finalJudgeName = playersData[playerKey].name;
+                }
             });
 
-            // تحديث الإعدادات
+            // إطلاق اللعبة
             updates[`mafia_rooms/${pin}/settings/status`] = "distributed";
             updates[`mafia_rooms/${pin}/settings/timestamp`] = Date.now(); 
-            updates[`mafia_rooms/${pin}/settings/judgeName`] = playersData[judgeId].name; // حفظ اسم القاضي للجميع
+            updates[`mafia_rooms/${pin}/settings/judgeName`] = finalJudgeName; 
 
             await update(ref(db), updates);
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('reshuffleBtn').style.display = 'block';
         };
 
-        function showMyRole(role) {
-            const display = document.getElementById('roleDisplay');
-            display.style.display = 'block';
-            display.innerText = `أنت: ${role}`;
+        // إنهاء الجولة (يعيد الجميع للوبي)
+        window.endRound = async function() {
+            if(confirm("هل تريد إنهاء هذه الجولة وإعادة الجميع للوبي؟")) {
+                await update(ref(db, `mafia_rooms/${pin}/settings`), {
+                    status: 'waiting',
+                    timestamp: Date.now()
+                });
+            }
+        };
+
+        // تجهيز شكل البطاقة
+        function setupCard(role) {
+            const cardBack = document.getElementById('cardBack');
+            const title = document.getElementById('roleTitle');
+            const desc = document.getElementById('roleDesc');
             
-            if(role === 'مافيا') { display.style.background = '#7f1d1d'; display.style.color = '#fca5a5'; }
-            else if(role === 'دكتور') { display.style.background = '#14532d'; display.style.color = '#86efac'; }
-            else if(role === 'محقق') { display.style.background = '#1e3a8a'; display.style.color = '#93c5fd'; }
-            else if(role === 'القاضي') { display.style.background = '#78350f'; display.style.color = '#fde68a'; }
-            else { display.style.background = '#374151'; display.style.color = '#d1d5db'; } 
+            title.innerText = role;
+
+            if (role === 'مافيا') {
+                document.body.style.backgroundColor = '#450a0a'; 
+                cardBack.style.borderColor = '#dc2626';
+                title.style.color = '#ef4444';
+                desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار!";
+            } else if (role === 'دكتور') {
+                document.body.style.backgroundColor = '#064e3b'; 
+                cardBack.style.borderColor = '#10b981';
+                title.style.color = '#34d399';
+                desc.innerText = "أنقذ شخصاً واحداً كل ليلة.";
+            } else if (role === 'محقق') {
+                document.body.style.backgroundColor = '#172554'; 
+                cardBack.style.borderColor = '#3b82f6';
+                title.style.color = '#93c5fd';
+                desc.innerText = "اسأل القاضي ليلاً عن هوية شخص واحد.";
+            } else if (role === 'القاضي') {
+                document.body.style.backgroundColor = '#78350f'; 
+                cardBack.style.borderColor = '#f59e0b';
+                title.style.color = '#fde68a';
+                desc.innerText = "أنت تدير اللعبة وتعرف أسرار الجميع.";
+            } else {
+                document.body.style.backgroundColor = '#1f2937'; 
+                cardBack.style.borderColor = '#9ca3af';
+                title.style.color = '#f3f4f6';
+                desc.innerText = "مواطن شريف. راقب، وصوت لطرد المافيا.";
+            }
         }
+
+        // تفاعل البطاقة للهوست
+        const cardInner = document.getElementById('cardInner');
+        const container = document.getElementById('cardContainer');
+        const revealCard = (e) => { e.preventDefault(); cardInner.classList.add('flipped'); };
+        const hideCard = (e) => { e.preventDefault(); cardInner.classList.remove('flipped'); };
+
+        container.addEventListener('mousedown', revealCard);
+        container.addEventListener('mouseup', hideCard);
+        container.addEventListener('mouseleave', hideCard); 
+        container.addEventListener('touchstart', revealCard, {passive: false});
+        container.addEventListener('touchend', hideCard);
+        container.addEventListener('touchcancel', hideCard);
+
     </script>
 </head>
 <body>
-    <div class="header">
-        <div style="color: #888;">أخبر اللاعبين بهذا الكود</div>
-        <div class="pin-display" id="pinDisplay">----</div>
-    </div>
-
-    <div class="panel">
-        <h2>⚙️ إعدادات اللعبة</h2>
-        <div class="setting-row">
-            <span>من هو القاضي؟</span>
-            <select id="judgeSelect"></select>
+    
+    <div id="setupScreen">
+        <div class="header">
+            <div style="color: #888;">أخبر اللاعبين بهذا الكود</div>
+            <div class="pin-display" id="pinDisplay">----</div>
         </div>
-        <div class="setting-row">
-            <span>عدد المافيا:</span>
-            <select id="mafiaCount">
-                <option value="1">1 مافيا</option>
-                <option value="2">2 مافيا</option>
-            </select>
+
+        <div class="panel">
+            <h2>⚙️ إعدادات اللعبة</h2>
+            <div class="setting-row">
+                <span>من هو القاضي؟</span>
+                <select id="judgeSelect"></select>
+            </div>
+            <div class="setting-row">
+                <span>عدد المافيا:</span>
+                <select id="mafiaCount">
+                    <option value="1">1 مافيا</option>
+                    <option value="2">2 مافيا</option>
+                </select>
+            </div>
         </div>
+
+        <div class="panel">
+            <h2>👥 اللاعبين المنضمين (<span id="playerCount">0</span>)</h2>
+            <div class="players-list" id="playersList"></div>
+        </div>
+
+        <button id="startBtn" class="btn-start" onclick="distributeRoles()">🎲 توزيع الأدوار وبدء اللعبة</button>
     </div>
 
-    <div class="panel">
-        <h2>👥 اللاعبين المنضمين (<span id="playerCount">0</span>)</h2>
-        <div class="players-list" id="playersList"></div>
+    <div id="gameScreen">
+        <div class="judge-banner">⚖️ القاضي لهذه الجولة: <span id="judgeName"></span></div>
+        <div class="instruction">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+
+        <div class="card-container" id="cardContainer">
+            <div class="card-inner" id="cardInner">
+                <div class="card-front">؟</div>
+                <div class="card-back" id="cardBack">
+                    <div style="font-size: 1.2rem; color: #888;">أنت:</div>
+                    <div class="role-title" id="roleTitle">...</div>
+                    <div class="role-desc" id="roleDesc">...</div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-end" onclick="endRound()">🔄 إنهاء الجولة والعودة للوبي</button>
     </div>
 
-    <button id="startBtn" class="btn-start" onclick="distributeRoles(false)">🎲 توزيع الأدوار وبدء اللعبة</button>
-    <button id="reshuffleBtn" class="btn-start btn-reshuffle" style="display:none;" onclick="distributeRoles(true)">🔄 إعادة خلط وتوزيع الأدوار للجميع</button>
-
-    <div id="roleDisplay"></div>
 </body>
 </html>
