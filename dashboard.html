@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة مراقبة اللاعبين</title>
+    <style>
+        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5);}
+        h1 { color: #dc2626; text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        
+        .stats-box { background: #222; padding: 20px; text-align: center; border-radius: 10px; margin-bottom: 20px; border: 1px solid #444;}
+        .total-number { font-size: 3rem; font-weight: bold; color: #f59e0b; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px;}
+        th, td { padding: 15px; text-align: right; border-bottom: 1px solid #333; }
+        th { background-color: #dc2626; color: white; border-radius: 5px;}
+        tr:hover { background-color: #2a2a2a; }
+        td { color: #ccc; }
+    </style>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        // نفس بيانات الاتصال الخاصة بك
+        const firebaseConfig = {
+            apiKey: "AIzaSyB5CobIKfYdAz8jaabJpMQrGoqS9Ton28Y",
+            authDomain: "buttons-f3501.firebaseapp.com",
+            databaseURL: "https://buttons-f3501-default-rtdb.firebaseio.com",
+            projectId: "buttons-f3501"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // جلب بيانات السجل
+        const logsRef = ref(db, `mafia_logs/players`);
+        
+        onValue(logsRef, (snapshot) => {
+            const tableBody = document.getElementById('tableBody');
+            const totalCount = document.getElementById('totalCount');
+            tableBody.innerHTML = '';
+            
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const keys = Object.keys(data);
+                
+                // تحديث العداد
+                totalCount.innerText = keys.length;
+                
+                // عرض البيانات بترتيب عكسي (الأحدث أولاً)
+                keys.reverse().forEach((key, index) => {
+                    const player = data[key];
+                    const row = `<tr>
+                        <td>${index + 1}</td>
+                        <td style="font-weight: bold; color: #fff;">${player.name}</td>
+                        <td>${player.room}</td>
+                        <td>${player.time}</td>
+                    </tr>`;
+                    tableBody.innerHTML += row;
+                });
+            } else {
+                totalCount.innerText = "0";
+                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">لا يوجد لاعبين حتى الآن</td></tr>';
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 إحصائيات الدخول للعبة</h1>
+        
+        <div class="stats-box">
+            <div>إجمالي عدد الأشخاص الذين دخلوا اللعبة</div>
+            <div class="total-number" id="totalCount">0</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>اسم اللاعب / الدور</th>
+                    <th>رقم الغرفة</th>
+                    <th>وقت وتاريخ الدخول</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                </tbody>
+        </table>
+    </div>
+</body>
+</html>
