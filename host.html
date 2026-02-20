@@ -5,50 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>إدارة المافيا - الهوست</title>
     <style>
+        /* خلفية ثابتة للجميع لا تتغير لضمان السرية */
         body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; padding-top: 20px;}
         
-        /* --- شاشة اللوبي والإعدادات --- */
         #setupScreen { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 20px; box-sizing: border-box; }
         .header { text-align: center; margin-bottom: 20px; }
         .pin-display { font-size: 3rem; font-weight: bold; color: #dc2626; letter-spacing: 5px; background: rgba(0,0,0,0.5); padding: 10px 40px; border-radius: 10px; border: 2px dashed #dc2626; margin: 10px 0;}
         
-        .panel { background: #222; width: 100%; max-width: 600px; padding: 20px; border-radius: 10px; border: 1px solid #444; margin-bottom: 20px; box-sizing: border-box;}
-        h2 { color: #aaa; margin-top: 0; font-size: 1.2rem; border-bottom: 1px solid #444; padding-bottom: 10px;}
+        .panel { background: #1a1a1a; width: 100%; max-width: 600px; padding: 20px; border-radius: 10px; border: 1px solid #333; margin-bottom: 20px; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5);}
+        h2 { color: #aaa; margin-top: 0; font-size: 1.2rem; border-bottom: 1px solid #333; padding-bottom: 10px;}
         
         .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 1.1rem;}
-        select { padding: 8px; font-size: 1rem; border-radius: 5px; background: #333; color: white; border: 1px solid #555; width: 180px; outline: none;}
+        select { padding: 8px; font-size: 1rem; border-radius: 5px; background: #222; color: white; border: 1px solid #555; width: 180px; outline: none;}
         
         .players-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-        .player-badge { background: #333; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; border-right: 4px solid #4b5563;}
+        .player-badge { background: #222; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; border-right: 4px solid #4b5563;}
         .player-badge.is-host { border-color: #dc2626; }
 
-        .btn-start { background: #dc2626; color: white; border: none; padding: 15px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; max-width: 600px; transition: 0.2s; box-shadow: 0 5px 15px rgba(220, 38, 38, 0.3);}
+        .btn-start { background: linear-gradient(135deg, #dc2626, #991b1b); color: white; border: none; padding: 15px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; max-width: 600px; transition: 0.2s; box-shadow: 0 5px 15px rgba(220, 38, 38, 0.3);}
         .btn-start:active { transform: scale(0.95); }
 
-        /* --- شاشة اللعب العامة --- */
         #gameScreen { display: none; width: 100%; flex-direction: column; align-items: center; }
-        .judge-banner { background: #78350f; color: #fde68a; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
+        .judge-banner { background: #1a1a1a; border-bottom: 2px solid #f59e0b; color: #fde68a; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 30px; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.1);}
         .instruction { color: #888; margin-bottom: 20px; font-size: 1.1rem; text-align: center;}
 
-        /* --- شاشة القاضي (مربع كبير ثابت) --- */
-        #judgeView { display: none; width: 90%; max-width: 400px; background: #451a03; border: 4px solid #f59e0b; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 0 30px rgba(245, 158, 11, 0.2); margin-top: 20px; }
-        .judge-title { font-size: 2.5rem; font-weight: 900; color: #fcd34d; margin-bottom: 10px; }
+        /* شاشة القاضي بتصميم غامض وتوهج ذهبي */
+        #judgeView { display: none; width: 90%; max-width: 400px; background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%); border: 2px solid #f59e0b; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 0 40px rgba(245, 158, 11, 0.15), inset 0 0 20px rgba(245, 158, 11, 0.05); margin-top: 20px; }
+        .judge-title { font-size: 2.5rem; font-weight: 900; color: #fcd34d; margin-bottom: 10px; text-shadow: 0 0 15px rgba(252, 211, 77, 0.5);}
         .judge-desc { color: #fde68a; font-size: 1.2rem; line-height: 1.6; }
 
-        /* --- البطاقة ثلاثية الأبعاد (للأدوار السرية) --- */
+        /* البطاقة ثلاثية الأبعاد والتوهج */
         #cardContainer { display: none; width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
         .card-inner.flipped { transform: rotateY(180deg); }
-        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.6); border: 2px solid #333; }
-        /* ظهر البطاقة رمادي غامق لعدم كشف الضوء */
-        .card-front { background: repeating-linear-gradient(45deg, #1f2937, #1f2937 10px, #252f3e 10px, #252f3e 20px); color: #6b7280; font-size: 5rem; font-weight: bold; }
-        .card-back { background: #222; transform: rotateY(180deg); padding: 20px; box-sizing: border-box; }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px solid #333; }
         
-        .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);}
-        .role-desc { font-size: 1.1rem; color: #fff; margin-top: 10px;}
+        /* ظهر البطاقة (علامة الاستفهام) */
+        .card-front { background: repeating-linear-gradient(45deg, #151515, #151515 10px, #1a1a1a 10px, #1a1a1a 20px); color: #444; font-size: 6rem; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); text-shadow: 0 0 20px rgba(0,0,0,1);}
+        
+        /* وجه البطاقة الأساسي (يتم تعديل التوهج من الجافاسكربت) */
+        .card-back { background: radial-gradient(circle at center, #222 0%, #0a0a0a 100%); transform: rotateY(180deg); padding: 20px; box-sizing: border-box; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+        
+        .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; }
+        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 10px;}
 
-        .btn-end { background: transparent; border: 2px solid #555; color: #aaa; padding: 12px 30px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 40px; transition: 0.2s;}
-        .btn-end:hover { background: #333; color: #fff; }
+        .btn-end { background: transparent; border: 2px solid #444; color: #888; padding: 12px 30px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 40px; transition: 0.2s;}
+        .btn-end:hover { background: #222; color: #fff; border-color: #666;}
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
@@ -119,9 +121,7 @@
 
         function updateJudgeSelect() {
             const judgeSelect = document.getElementById('judgeSelect');
-            // حفظ القيمة الحالية إذا كانت موجودة، وإلا فالافتراضي هو "random"
             const currentValue = judgeSelect.value;
-            
             judgeSelect.innerHTML = '<option value="random">🎲 عشوائي (يُوزع سرياً)</option>';
             
             Object.keys(playersData).forEach(key => {
@@ -131,7 +131,6 @@
                 judgeSelect.appendChild(option);
             });
             
-            // محاولة إعادة تحديد القيمة السابقة إذا كانت ما زالت صالحة
             if (currentValue && (currentValue === 'random' || playersData[currentValue])) {
                 judgeSelect.value = currentValue;
             }
@@ -142,13 +141,11 @@
             let judgeId = document.getElementById('judgeSelect').value;
             const numMafia = parseInt(document.getElementById('mafiaCount').value);
 
-            // إذا اختار عشوائي، نختار واحداً من اللاعبين الآن
             if (judgeId === 'random') {
                 judgeId = pKeys[Math.floor(Math.random() * pKeys.length)];
             }
 
-            // التحقق من العدد
-            const minPlayers = numMafia + 3; // قاضي + مافيا + دكتور + محقق
+            const minPlayers = numMafia + 3; 
             if (pKeys.length < minPlayers) {
                 alert(`عدد اللاعبين قليل! تحتاج ${minPlayers} على الأقل (مع القاضي) لهذه الإعدادات.`);
                 return;
@@ -159,28 +156,22 @@
             let updates = {};
             let finalJudgeName = playersData[judgeId].name;
 
-            // تعيين القاضي
             updates[`mafia_rooms/${pin}/players/${judgeId}/role`] = 'القاضي';
 
-            // تجميع البقية لتوزيع الأدوار السرية
             pKeys.forEach(key => { if (key !== judgeId) playersToAssign.push(key); });
 
-            // تجهيز الكروت
             for(let i=0; i<numMafia; i++) rolesPool.push("مافيا");
             rolesPool.push("دكتور");
             rolesPool.push("محقق");
             while(rolesPool.length < playersToAssign.length) rolesPool.push("مواطن");
 
-            // خلط
             rolesPool.sort(() => Math.random() - 0.5);
             rolesPool.sort(() => Math.random() - 0.5); 
 
-            // توزيع
             playersToAssign.forEach((playerKey, index) => {
                 updates[`mafia_rooms/${pin}/players/${playerKey}/role`] = rolesPool[index];
             });
 
-            // بدء اللعبة
             updates[`mafia_rooms/${pin}/settings/status`] = "distributed";
             updates[`mafia_rooms/${pin}/settings/timestamp`] = Date.now(); 
             updates[`mafia_rooms/${pin}/settings/judgeName`] = finalJudgeName; 
@@ -203,12 +194,10 @@
             const instructions = document.getElementById('instructionText');
 
             if (role === 'القاضي') {
-                // القاضي: شاشة مكشوفة
                 cardContainer.style.display = 'none';
                 instructions.style.display = 'none';
                 judgeView.style.display = 'block';
             } else {
-                // البقية: بطاقة سرية
                 judgeView.style.display = 'none';
                 cardContainer.style.display = 'block';
                 instructions.style.display = 'block';
@@ -216,6 +205,7 @@
             }
         }
 
+        // نظام الألوان والتوهج للبطاقات
         function setupCardColors(role) {
             const cardBack = document.getElementById('cardBack');
             const title = document.getElementById('roleTitle');
@@ -224,24 +214,28 @@
             title.innerText = role;
 
             if (role === 'مافيا') {
-                cardBack.style.backgroundColor = '#7f1d1d'; // خلفية البطاقة فقط
                 cardBack.style.borderColor = '#dc2626';
-                title.style.color = '#fca5a5';
+                cardBack.style.boxShadow = '0 0 40px rgba(220, 38, 38, 0.25), inset 0 0 20px rgba(220, 38, 38, 0.15)';
+                title.style.color = '#ef4444';
+                title.style.textShadow = '0 0 15px rgba(239, 68, 68, 0.5)';
                 desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار!";
             } else if (role === 'دكتور') {
-                cardBack.style.backgroundColor = '#14532d';
                 cardBack.style.borderColor = '#10b981';
-                title.style.color = '#86efac';
+                cardBack.style.boxShadow = '0 0 40px rgba(16, 185, 129, 0.25), inset 0 0 20px rgba(16, 185, 129, 0.15)';
+                title.style.color = '#34d399';
+                title.style.textShadow = '0 0 15px rgba(52, 211, 153, 0.5)';
                 desc.innerText = "أنقذ شخصاً واحداً كل ليلة.";
             } else if (role === 'محقق') {
-                cardBack.style.backgroundColor = '#1e3a8a';
                 cardBack.style.borderColor = '#3b82f6';
+                cardBack.style.boxShadow = '0 0 40px rgba(59, 130, 246, 0.25), inset 0 0 20px rgba(59, 130, 246, 0.15)';
                 title.style.color = '#93c5fd';
+                title.style.textShadow = '0 0 15px rgba(147, 197, 253, 0.5)';
                 desc.innerText = "اسأل القاضي ليلاً عن هوية شخص واحد.";
             } else {
-                cardBack.style.backgroundColor = '#374151';
                 cardBack.style.borderColor = '#9ca3af';
+                cardBack.style.boxShadow = '0 0 40px rgba(156, 163, 175, 0.15), inset 0 0 20px rgba(156, 163, 175, 0.1)';
                 title.style.color = '#f3f4f6';
+                title.style.textShadow = '0 0 15px rgba(243, 244, 246, 0.3)';
                 desc.innerText = "مواطن شريف. راقب، وصوت لطرد المافيا.";
             }
         }
@@ -301,11 +295,11 @@
             <div class="judge-desc">مهمتك إدارة النقاش، وتنظيم عملية التصويت، وتلقي طلبات المافيا والمحقق والدكتور في الليل.</div>
         </div>
 
-        <div class="card-container" id="cardContainer">
+        <div id="cardContainer">
             <div class="card-inner" id="cardInner">
                 <div class="card-front">؟</div>
                 <div class="card-back" id="cardBack">
-                    <div style="font-size: 1.2rem; color: #ddd;">أنت:</div>
+                    <div style="font-size: 1.2rem; color: #888;">أنت:</div>
                     <div class="role-title" id="roleTitle">...</div>
                     <div class="role-desc" id="roleDesc">...</div>
                 </div>
