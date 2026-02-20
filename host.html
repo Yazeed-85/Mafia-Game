@@ -48,7 +48,6 @@
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        // تمت إضافة أمر push لتسجيل اللاعبين
         import { getDatabase, ref, set, onValue, get, update, onDisconnect, push } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
         const firebaseConfig = {
@@ -72,16 +71,20 @@
         const playersRef = ref(db, `mafia_rooms/${pin}/players`);
         const settingsRef = ref(db, `mafia_rooms/${pin}/settings`);
 
+        // تم إزالة onDisconnect(roomRef).remove() لمنع انهيار الغرفة إذا ضعف الإنترنت
         set(roomRef, { settings: { status: 'waiting', timestamp: Date.now(), judgeName: '' } });
         set(ref(db, `mafia_rooms/${pin}/players/${myId}`), { name: myName, role: '', isHost: true });
-        onDisconnect(roomRef).remove(); 
 
-        // تسجيل دخول الهوست في سجل الإحصائيات الدائم
+        // تسجيل الدخول مع اسم اليوم
+        const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', minute: 'numeric' };
+        const formattedDate = new Intl.DateTimeFormat('ar-SA', options).format(new Date());
+        
         const logsRef = ref(db, `mafia_logs/players`);
         push(logsRef, {
             name: myName + " (هوست)",
             room: pin,
-            time: new Date().toLocaleString('ar-SA')
+            time: formattedDate,
+            timestamp: Date.now() // مفيد للترتيب الدقيق في الإحصائيات
         });
 
         let playersData = {};
@@ -101,13 +104,27 @@
                     document.getElementById('setupScreen').style.display = 'none';
                     document.getElementById('gameScreen').style.display = 'flex';
                     document.getElementById('judgeName').innerText = settings.judgeName;
-                    setupRoleView(playersData[myId].role);
+                    
+                    // إصلاح مشكلة السباق الزمني للبطاقات
+                    checkMyRole();
                 } else {
                     document.getElementById('setupScreen').style.display = 'flex';
                     document.getElementById('gameScreen').style.display = 'none';
                 }
             }
         });
+
+        // دالة المراقبة المستمرة لضمان ظهور البطاقة
+        function checkMyRole() {
+            onValue(ref(db, `mafia_rooms/${pin}/players/${myId}`), (snap) => {
+                if (snap.exists()) {
+                    const data = snap.val();
+                    if (data.role && data.role !== '') {
+                        setupRoleView(data.role);
+                    }
+                }
+            }); // تم إزالة onlyOnce لتظل تراقب حتى يأتي الدور
+        }
 
         function renderPlayers() {
             const list = document.getElementById('playersList');
