@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>بطاقة اللاعب</title>
+    <style>
+        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; transition: background 0.5s ease;}
+        
+        .waiting-box { text-align: center; }
+        .loader { border: 4px solid #333; border-top: 4px solid #dc2626; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px;}
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* كرت الدور المستلم */
+        .role-card { display: none; width: 90%; max-width: 400px; background: #222; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 2px solid #444; animation: popIn 0.5s ease;}
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        
+        .player-name { font-size: 1.2rem; color: #888; margin-bottom: 10px;}
+        .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);}
+        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 20px;}
+
+    </style>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        // نفس إعداداتك
+        const firebaseConfig = {
+            apiKey: "AIzaSyB5CobIKfYdAz8jaabJpMQrGoqS9Ton28Y",
+            authDomain: "buttons-f3501.firebaseapp.com",
+            databaseURL: "https://buttons-f3501-default-rtdb.firebaseio.com",
+            projectId: "buttons-f3501"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const pin = urlParams.get('pin');
+        const myName = urlParams.get('name');
+        const myId = "player_" + Date.now();
+
+        document.getElementById('nameDisplay').innerText = `يا ${myName}`;
+
+        const myRef = ref(db, `mafia_rooms/${pin}/players/${myId}`);
+        const settingsRef = ref(db, `mafia_rooms/${pin}/settings`);
+
+        // تسجيل الدخول وحذف الاسم عند الخروج
+        set(myRef, { name: myName, role: '', isHost: false });
+        onDisconnect(myRef).remove();
+
+        // الاستماع لحالة الغرفة والأدوار
+        onValue(settingsRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const settings = snapshot.val();
+                if (settings.status === 'distributed') {
+                    // إذا وزع الهوست، اقرأ دوري
+                    checkMyRole();
+                } else {
+                    // إذا عاد للانتظار
+                    document.getElementById('waitingBox').style.display = 'block';
+                    document.getElementById('roleCard').style.display = 'none';
+                    document.body.style.backgroundColor = '#111';
+                }
+            } else {
+                document.getElementById('waitingMsg').innerText = "تم إغلاق الغرفة من قبل الزعيم.";
+                document.querySelector('.loader').style.display = 'none';
+            }
+        });
+
+        function checkMyRole() {
+            onValue(myRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.val();
+                    if (data.role !== '') {
+                        showRoleCard(data.role);
+                    }
+                }
+            }, { onlyOnce: true }); // نقرأه مرة واحدة عند التوزيع لتفادي التكرار
+        }
+
+        function showRoleCard(role) {
+            document.getElementById('waitingBox').style.display = 'none';
+            const card = document.getElementById('roleCard');
+            const title = document.getElementById('roleTitle');
+            const desc = document.getElementById('roleDesc');
+            
+            card.style.display = 'block';
+            title.innerText = role;
+
+            // تغيير الألوان الوصف بناءً على الدور
+            if (role === 'مافيا') {
+                document.body.style.backgroundColor = '#450a0a'; // أحمر داكن جداً
+                card.style.borderColor = '#dc2626';
+                title.style.color = '#ef4444';
+                desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار لكي لا يكشفوك!";
+            } else if (role === 'دكتور') {
+                document.body.style.backgroundColor = '#064e3b'; // أخضر داكن
+                card.style.borderColor = '#10b981';
+                title.style.color = '#34d399';
+                desc.innerText = "أنقذ شخصاً واحداً كل ليلة من رصاص المافيا.";
+            } else if (role === 'محقق') {
+                document.body.style.backgroundColor = '#172554'; // أزرق داكن
+                card.style.borderColor = '#3b82f6';
+                title.style.color = '#93c5fd';
+                desc.innerText = "اسأل القاضي كل ليلة عن شخص واحد لتعرف هل هو مافيا أم لا.";
+            } else { // مواطن
+                document.body.style.backgroundColor = '#1f2937'; // رمادي
+                card.style.borderColor = '#9ca3af';
+                title.style.color = '#f3f4f6';
+                desc.innerText = "أنت مواطن مسالم. راقب، حلل، وصوت لطرد المافيا في النهار.";
+            }
+        }
+    </script>
+</head>
+<body>
+    
+    <div class="waiting-box" id="waitingBox">
+        <div class="loader"></div>
+        <h2 style="color: #aaa;" id="waitingMsg">في انتظار الزعيم ليبدأ اللعبة...</h2>
+        <p style="color: #666;">لا تغلق هذه الشاشة</p>
+    </div>
+
+    <div class="role-card" id="roleCard">
+        <div class="player-name" id="nameDisplay">يا فلان</div>
+        <div style="font-size: 1.5rem;">أنت:</div>
+        <div class="role-title" id="roleTitle">دكتور</div>
+        <div class="role-desc" id="roleDesc">أنقذ شخصاً واحداً كل ليلة من رصاص المافيا.</div>
+    </div>
+
+</body>
+</html>
