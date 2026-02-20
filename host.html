@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>إدارة المافيا - الهوست</title>
     <style>
-        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; transition: background 0.5s ease; padding-top: 20px;}
+        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; padding-top: 20px;}
         
         /* --- شاشة اللوبي والإعدادات --- */
         #setupScreen { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 0 20px; box-sizing: border-box; }
@@ -25,21 +25,27 @@
         .btn-start { background: #dc2626; color: white; border: none; padding: 15px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; max-width: 600px; transition: 0.2s; box-shadow: 0 5px 15px rgba(220, 38, 38, 0.3);}
         .btn-start:active { transform: scale(0.95); }
 
-        /* --- شاشة اللعب والبطاقة (مثل اللاعبين) --- */
+        /* --- شاشة اللعب العامة --- */
         #gameScreen { display: none; width: 100%; flex-direction: column; align-items: center; }
         .judge-banner { background: #78350f; color: #fde68a; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
         .instruction { color: #888; margin-bottom: 20px; font-size: 1.1rem; text-align: center;}
 
-        /* البطاقة ثلاثية الأبعاد */
-        .card-container { width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        /* --- شاشة القاضي (مربع كبير ثابت) --- */
+        #judgeView { display: none; width: 90%; max-width: 400px; background: #451a03; border: 4px solid #f59e0b; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 0 30px rgba(245, 158, 11, 0.2); margin-top: 20px; }
+        .judge-title { font-size: 2.5rem; font-weight: 900; color: #fcd34d; margin-bottom: 10px; }
+        .judge-desc { color: #fde68a; font-size: 1.2rem; line-height: 1.6; }
+
+        /* --- البطاقة ثلاثية الأبعاد (للأدوار السرية) --- */
+        #cardContainer { display: none; width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
         .card-inner.flipped { transform: rotateY(180deg); }
         .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.6); border: 2px solid #333; }
-        .card-front { background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #222 10px, #222 20px); color: #555; font-size: 5rem; font-weight: bold; }
+        /* ظهر البطاقة رمادي غامق لعدم كشف الضوء */
+        .card-front { background: repeating-linear-gradient(45deg, #1f2937, #1f2937 10px, #252f3e 10px, #252f3e 20px); color: #6b7280; font-size: 5rem; font-weight: bold; }
         .card-back { background: #222; transform: rotateY(180deg); padding: 20px; box-sizing: border-box; }
         
         .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);}
-        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 10px;}
+        .role-desc { font-size: 1.1rem; color: #fff; margin-top: 10px;}
 
         .btn-end { background: transparent; border: 2px solid #555; color: #aaa; padding: 12px 30px; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 40px; transition: 0.2s;}
         .btn-end:hover { background: #333; color: #fff; }
@@ -69,14 +75,12 @@
         const playersRef = ref(db, `mafia_rooms/${pin}/players`);
         const settingsRef = ref(db, `mafia_rooms/${pin}/settings`);
 
-        // تهيئة الغرفة عند الدخول
         set(roomRef, { settings: { status: 'waiting', timestamp: Date.now(), judgeName: '' } });
         set(ref(db, `mafia_rooms/${pin}/players/${myId}`), { name: myName, role: '', isHost: true });
         onDisconnect(roomRef).remove(); 
 
         let playersData = {};
 
-        // متابعة دخول اللاعبين
         onValue(playersRef, (snapshot) => {
             if (snapshot.exists()) {
                 playersData = snapshot.val();
@@ -85,21 +89,17 @@
             }
         });
 
-        // متابعة حالة اللعبة لتبديل الشاشات
         onValue(settingsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const settings = snapshot.val();
                 if (settings.status === 'distributed' && playersData[myId]) {
-                    // إخفاء اللوبي وإظهار شاشة اللعب
                     document.getElementById('setupScreen').style.display = 'none';
                     document.getElementById('gameScreen').style.display = 'flex';
                     document.getElementById('judgeName').innerText = settings.judgeName;
-                    setupCard(playersData[myId].role);
+                    setupRoleView(playersData[myId].role);
                 } else {
-                    // العودة للوبي
                     document.getElementById('setupScreen').style.display = 'flex';
                     document.getElementById('gameScreen').style.display = 'none';
-                    document.body.style.backgroundColor = '#111';
                 }
             }
         });
@@ -119,7 +119,9 @@
 
         function updateJudgeSelect() {
             const judgeSelect = document.getElementById('judgeSelect');
-            const currentValue = judgeSelect.value || 'random';
+            // حفظ القيمة الحالية إذا كانت موجودة، وإلا فالافتراضي هو "random"
+            const currentValue = judgeSelect.value;
+            
             judgeSelect.innerHTML = '<option value="random">🎲 عشوائي (يُوزع سرياً)</option>';
             
             Object.keys(playersData).forEach(key => {
@@ -129,64 +131,56 @@
                 judgeSelect.appendChild(option);
             });
             
-            if (currentValue === 'random' || playersData[currentValue]) {
+            // محاولة إعادة تحديد القيمة السابقة إذا كانت ما زالت صالحة
+            if (currentValue && (currentValue === 'random' || playersData[currentValue])) {
                 judgeSelect.value = currentValue;
             }
         }
 
-        // خوارزمية التوزيع الذكية (تدعم العشوائية)
         window.distributeRoles = async function() {
             const pKeys = Object.keys(playersData);
-            const judgeId = document.getElementById('judgeSelect').value;
+            let judgeId = document.getElementById('judgeSelect').value;
             const numMafia = parseInt(document.getElementById('mafiaCount').value);
 
-            // حساب العدد الأدنى (مافيا + دكتور + محقق + قاضي)
-            const minPlayers = numMafia + 3; 
+            // إذا اختار عشوائي، نختار واحداً من اللاعبين الآن
+            if (judgeId === 'random') {
+                judgeId = pKeys[Math.floor(Math.random() * pKeys.length)];
+            }
+
+            // التحقق من العدد
+            const minPlayers = numMafia + 3; // قاضي + مافيا + دكتور + محقق
             if (pKeys.length < minPlayers) {
-                alert(`اللعبة تحتاج ${minPlayers} لاعبين على الأقل بهذه الإعدادات!`);
+                alert(`عدد اللاعبين قليل! تحتاج ${minPlayers} على الأقل (مع القاضي) لهذه الإعدادات.`);
                 return;
             }
 
             let playersToAssign = [];
             let rolesPool = [];
-            let finalJudgeName = "";
             let updates = {};
+            let finalJudgeName = playersData[judgeId].name;
 
-            if (judgeId !== 'random') {
-                // تعيين القاضي المختار
-                updates[`mafia_rooms/${pin}/players/${judgeId}/role`] = 'القاضي';
-                finalJudgeName = playersData[judgeId].name;
-                pKeys.forEach(key => { if (key !== judgeId) playersToAssign.push(key); });
-            } else {
-                // القاضي عشوائي، جميع اللاعبين يدخلون في السحب
-                playersToAssign = [...pKeys];
-                rolesPool.push("القاضي");
-            }
+            // تعيين القاضي
+            updates[`mafia_rooms/${pin}/players/${judgeId}/role`] = 'القاضي';
 
-            // إضافة الأدوار الأساسية
+            // تجميع البقية لتوزيع الأدوار السرية
+            pKeys.forEach(key => { if (key !== judgeId) playersToAssign.push(key); });
+
+            // تجهيز الكروت
             for(let i=0; i<numMafia; i++) rolesPool.push("مافيا");
             rolesPool.push("دكتور");
             rolesPool.push("محقق");
-            
-            // الباقي مواطنين
-            while(rolesPool.length < playersToAssign.length) {
-                rolesPool.push("مواطن");
-            }
+            while(rolesPool.length < playersToAssign.length) rolesPool.push("مواطن");
 
-            // خلط قوي للأدوار
+            // خلط
             rolesPool.sort(() => Math.random() - 0.5);
             rolesPool.sort(() => Math.random() - 0.5); 
 
-            // توزيع الكروت المخلوطة
+            // توزيع
             playersToAssign.forEach((playerKey, index) => {
-                const assignedRole = rolesPool[index];
-                updates[`mafia_rooms/${pin}/players/${playerKey}/role`] = assignedRole;
-                if (assignedRole === "القاضي") {
-                    finalJudgeName = playersData[playerKey].name;
-                }
+                updates[`mafia_rooms/${pin}/players/${playerKey}/role`] = rolesPool[index];
             });
 
-            // إطلاق اللعبة
+            // بدء اللعبة
             updates[`mafia_rooms/${pin}/settings/status`] = "distributed";
             updates[`mafia_rooms/${pin}/settings/timestamp`] = Date.now(); 
             updates[`mafia_rooms/${pin}/settings/judgeName`] = finalJudgeName; 
@@ -194,7 +188,6 @@
             await update(ref(db), updates);
         };
 
-        // إنهاء الجولة (يعيد الجميع للوبي)
         window.endRound = async function() {
             if(confirm("هل تريد إنهاء هذه الجولة وإعادة الجميع للوبي؟")) {
                 await update(ref(db, `mafia_rooms/${pin}/settings`), {
@@ -204,8 +197,26 @@
             }
         };
 
-        // تجهيز شكل البطاقة
-        function setupCard(role) {
+        function setupRoleView(role) {
+            const judgeView = document.getElementById('judgeView');
+            const cardContainer = document.getElementById('cardContainer');
+            const instructions = document.getElementById('instructionText');
+
+            if (role === 'القاضي') {
+                // القاضي: شاشة مكشوفة
+                cardContainer.style.display = 'none';
+                instructions.style.display = 'none';
+                judgeView.style.display = 'block';
+            } else {
+                // البقية: بطاقة سرية
+                judgeView.style.display = 'none';
+                cardContainer.style.display = 'block';
+                instructions.style.display = 'block';
+                setupCardColors(role);
+            }
+        }
+
+        function setupCardColors(role) {
             const cardBack = document.getElementById('cardBack');
             const title = document.getElementById('roleTitle');
             const desc = document.getElementById('roleDesc');
@@ -213,34 +224,28 @@
             title.innerText = role;
 
             if (role === 'مافيا') {
-                document.body.style.backgroundColor = '#450a0a'; 
+                cardBack.style.backgroundColor = '#7f1d1d'; // خلفية البطاقة فقط
                 cardBack.style.borderColor = '#dc2626';
-                title.style.color = '#ef4444';
+                title.style.color = '#fca5a5';
                 desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار!";
             } else if (role === 'دكتور') {
-                document.body.style.backgroundColor = '#064e3b'; 
+                cardBack.style.backgroundColor = '#14532d';
                 cardBack.style.borderColor = '#10b981';
-                title.style.color = '#34d399';
+                title.style.color = '#86efac';
                 desc.innerText = "أنقذ شخصاً واحداً كل ليلة.";
             } else if (role === 'محقق') {
-                document.body.style.backgroundColor = '#172554'; 
+                cardBack.style.backgroundColor = '#1e3a8a';
                 cardBack.style.borderColor = '#3b82f6';
                 title.style.color = '#93c5fd';
                 desc.innerText = "اسأل القاضي ليلاً عن هوية شخص واحد.";
-            } else if (role === 'القاضي') {
-                document.body.style.backgroundColor = '#78350f'; 
-                cardBack.style.borderColor = '#f59e0b';
-                title.style.color = '#fde68a';
-                desc.innerText = "أنت تدير اللعبة وتعرف أسرار الجميع.";
             } else {
-                document.body.style.backgroundColor = '#1f2937'; 
+                cardBack.style.backgroundColor = '#374151';
                 cardBack.style.borderColor = '#9ca3af';
                 title.style.color = '#f3f4f6';
                 desc.innerText = "مواطن شريف. راقب، وصوت لطرد المافيا.";
             }
         }
 
-        // تفاعل البطاقة للهوست
         const cardInner = document.getElementById('cardInner');
         const container = document.getElementById('cardContainer');
         const revealCard = (e) => { e.preventDefault(); cardInner.classList.add('flipped'); };
@@ -288,13 +293,19 @@
 
     <div id="gameScreen">
         <div class="judge-banner">⚖️ القاضي لهذه الجولة: <span id="judgeName"></span></div>
-        <div class="instruction">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+        
+        <div class="instruction" id="instructionText">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+
+        <div id="judgeView">
+            <div class="judge-title">أنت القاضي ⚖️</div>
+            <div class="judge-desc">مهمتك إدارة النقاش، وتنظيم عملية التصويت، وتلقي طلبات المافيا والمحقق والدكتور في الليل.</div>
+        </div>
 
         <div class="card-container" id="cardContainer">
             <div class="card-inner" id="cardInner">
                 <div class="card-front">؟</div>
                 <div class="card-back" id="cardBack">
-                    <div style="font-size: 1.2rem; color: #888;">أنت:</div>
+                    <div style="font-size: 1.2rem; color: #ddd;">أنت:</div>
                     <div class="role-title" id="roleTitle">...</div>
                     <div class="role-desc" id="roleDesc">...</div>
                 </div>
