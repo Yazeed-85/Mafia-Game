@@ -5,26 +5,78 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>بطاقة اللاعب</title>
     <style>
-        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; transition: background 0.5s ease;}
+        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 100vh; overflow: hidden; transition: background 0.5s ease; padding-top: 20px;}
         
-        .waiting-box { text-align: center; }
-        .loader { border: 4px solid #333; border-top: 4px solid #dc2626; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px;}
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* شاشة الانتظار واللوبي */
+        .lobby-screen { width: 90%; max-width: 500px; text-align: center; }
+        .lobby-title { color: #aaa; font-size: 1.2rem; margin-bottom: 20px; }
+        .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 20px;}
+        .player-badge { background: #222; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; border: 1px solid #444;}
+        .me-badge { border-color: #dc2626; color: #fca5a5;}
+
+        /* شاشة اللعب والبطاقة */
+        .game-screen { display: none; width: 100%; flex-direction: column; align-items: center; }
+        .judge-banner { background: #78350f; color: #fde68a; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
         
-        /* كرت الدور المستلم */
-        .role-card { display: none; width: 90%; max-width: 400px; background: #222; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 2px solid #444; animation: popIn 0.5s ease;}
-        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .instruction { color: #888; margin-bottom: 20px; font-size: 1.1rem; text-align: center;}
+
+        /* برمجة البطاقة ثلاثية الأبعاد */
+        .card-container {
+            width: 250px;
+            height: 350px;
+            perspective: 1000px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-style: preserve-3d;
+        }
+        /* كلاس الانقلاب يتم إضافته بالجافاسكربت عند الضغط المطول */
+        .card-inner.flipped { transform: rotateY(180deg); }
         
-        .player-name { font-size: 1.2rem; color: #888; margin-bottom: 10px;}
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            border: 2px solid #333;
+        }
+        
+        /* ظهر البطاقة (الغامض) */
+        .card-front {
+            background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #222 10px, #222 20px);
+            color: #555;
+            font-size: 5rem;
+            font-weight: bold;
+        }
+
+        /* وجه البطاقة (الذي يحوي الدور) */
+        .card-back {
+            background: #222;
+            transform: rotateY(180deg);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
         .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);}
-        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 20px;}
+        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 10px;}
 
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
         import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
-        // نفس إعداداتك
         const firebaseConfig = {
             apiKey: "AIzaSyB5CobIKfYdAz8jaabJpMQrGoqS9Ton28Y",
             authDomain: "buttons-f3501.firebaseapp.com",
@@ -40,31 +92,41 @@
         const myName = urlParams.get('name');
         const myId = "player_" + Date.now();
 
-        document.getElementById('nameDisplay').innerText = `يا ${myName}`;
-
         const myRef = ref(db, `mafia_rooms/${pin}/players/${myId}`);
+        const playersRef = ref(db, `mafia_rooms/${pin}/players`);
         const settingsRef = ref(db, `mafia_rooms/${pin}/settings`);
 
-        // تسجيل الدخول وحذف الاسم عند الخروج
         set(myRef, { name: myName, role: '', isHost: false });
         onDisconnect(myRef).remove();
 
-        // الاستماع لحالة الغرفة والأدوار
+        // عرض اللوبي المتزامن
+        onValue(playersRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const playersData = snapshot.val();
+                const grid = document.getElementById('lobbyGrid');
+                grid.innerHTML = '';
+                Object.keys(playersData).forEach(key => {
+                    const p = playersData[key];
+                    const isMe = key === myId;
+                    grid.innerHTML += `<div class="player-badge ${isMe ? 'me-badge' : ''}">${p.name}</div>`;
+                });
+            }
+        });
+
+        // الاستماع لحالة الغرفة لبدء اللعب
         onValue(settingsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const settings = snapshot.val();
                 if (settings.status === 'distributed') {
-                    // إذا وزع الهوست، اقرأ دوري
+                    document.getElementById('lobbyScreen').style.display = 'none';
+                    document.getElementById('gameScreen').style.display = 'flex';
+                    document.getElementById('judgeName').innerText = settings.judgeName;
                     checkMyRole();
                 } else {
-                    // إذا عاد للانتظار
-                    document.getElementById('waitingBox').style.display = 'block';
-                    document.getElementById('roleCard').style.display = 'none';
+                    document.getElementById('lobbyScreen').style.display = 'block';
+                    document.getElementById('gameScreen').style.display = 'none';
                     document.body.style.backgroundColor = '#111';
                 }
-            } else {
-                document.getElementById('waitingMsg').innerText = "تم إغلاق الغرفة من قبل الزعيم.";
-                document.querySelector('.loader').style.display = 'none';
             }
         });
 
@@ -73,59 +135,83 @@
                 if (snap.exists()) {
                     const data = snap.val();
                     if (data.role !== '') {
-                        showRoleCard(data.role);
+                        setupCard(data.role);
                     }
                 }
-            }, { onlyOnce: true }); // نقرأه مرة واحدة عند التوزيع لتفادي التكرار
+            }, { onlyOnce: true });
         }
 
-        function showRoleCard(role) {
-            document.getElementById('waitingBox').style.display = 'none';
-            const card = document.getElementById('roleCard');
+        function setupCard(role) {
+            const cardBack = document.getElementById('cardBack');
             const title = document.getElementById('roleTitle');
             const desc = document.getElementById('roleDesc');
             
-            card.style.display = 'block';
             title.innerText = role;
 
-            // تغيير الألوان الوصف بناءً على الدور
             if (role === 'مافيا') {
-                document.body.style.backgroundColor = '#450a0a'; // أحمر داكن جداً
-                card.style.borderColor = '#dc2626';
+                cardBack.style.borderColor = '#dc2626';
                 title.style.color = '#ef4444';
-                desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار لكي لا يكشفوك!";
+                desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار!";
             } else if (role === 'دكتور') {
-                document.body.style.backgroundColor = '#064e3b'; // أخضر داكن
-                card.style.borderColor = '#10b981';
+                cardBack.style.borderColor = '#10b981';
                 title.style.color = '#34d399';
-                desc.innerText = "أنقذ شخصاً واحداً كل ليلة من رصاص المافيا.";
+                desc.innerText = "أنقذ شخصاً واحداً كل ليلة.";
             } else if (role === 'محقق') {
-                document.body.style.backgroundColor = '#172554'; // أزرق داكن
-                card.style.borderColor = '#3b82f6';
+                cardBack.style.borderColor = '#3b82f6';
                 title.style.color = '#93c5fd';
-                desc.innerText = "اسأل القاضي كل ليلة عن شخص واحد لتعرف هل هو مافيا أم لا.";
-            } else { // مواطن
-                document.body.style.backgroundColor = '#1f2937'; // رمادي
-                card.style.borderColor = '#9ca3af';
+                desc.innerText = "اسأل القاضي ليلاً عن هوية شخص واحد.";
+            } else if (role === 'القاضي') {
+                cardBack.style.borderColor = '#f59e0b';
+                title.style.color = '#fde68a';
+                desc.innerText = "أنت تدير اللعبة وتعرف أسرار الجميع.";
+            } else {
+                cardBack.style.borderColor = '#9ca3af';
                 title.style.color = '#f3f4f6';
-                desc.innerText = "أنت مواطن مسالم. راقب، حلل، وصوت لطرد المافيا في النهار.";
+                desc.innerText = "مواطن شريف. راقب، وصوت لطرد المافيا.";
             }
         }
+
+        // برمجة الضغط المطول للبطاقة لمنع التلصص
+        const cardInner = document.getElementById('cardInner');
+        const container = document.getElementById('cardContainer');
+
+        const revealCard = (e) => { e.preventDefault(); cardInner.classList.add('flipped'); };
+        const hideCard = (e) => { e.preventDefault(); cardInner.classList.remove('flipped'); };
+
+        // للكمبيوتر والجوال
+        container.addEventListener('mousedown', revealCard);
+        container.addEventListener('mouseup', hideCard);
+        container.addEventListener('mouseleave', hideCard); // إذا سحب الماوس خارج البطاقة
+        
+        container.addEventListener('touchstart', revealCard, {passive: false});
+        container.addEventListener('touchend', hideCard);
+        container.addEventListener('touchcancel', hideCard);
+
     </script>
 </head>
 <body>
     
-    <div class="waiting-box" id="waitingBox">
-        <div class="loader"></div>
-        <h2 style="color: #aaa;" id="waitingMsg">في انتظار الزعيم ليبدأ اللعبة...</h2>
-        <p style="color: #666;">لا تغلق هذه الشاشة</p>
+    <div class="lobby-screen" id="lobbyScreen">
+        <h2 class="lobby-title">في انتظار الهوست ليبدأ اللعبة...</h2>
+        <div style="color:#555;">اللاعبون المنضمون:</div>
+        <div class="players-grid" id="lobbyGrid"></div>
     </div>
 
-    <div class="role-card" id="roleCard">
-        <div class="player-name" id="nameDisplay">يا فلان</div>
-        <div style="font-size: 1.5rem;">أنت:</div>
-        <div class="role-title" id="roleTitle">دكتور</div>
-        <div class="role-desc" id="roleDesc">أنقذ شخصاً واحداً كل ليلة من رصاص المافيا.</div>
+    <div class="game-screen" id="gameScreen">
+        <div class="judge-banner">⚖️ القاضي لهذه الجولة: <span id="judgeName"></span></div>
+        
+        <div class="instruction">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+
+        <div class="card-container" id="cardContainer">
+            <div class="card-inner" id="cardInner">
+                <div class="card-front">؟</div>
+                <div class="card-back" id="cardBack">
+                    <div style="font-size: 1.2rem; color: #888;">أنت:</div>
+                    <div class="role-title" id="roleTitle">دكتور</div>
+                    <div class="role-desc" id="roleDesc">أنقذ شخصاً واحداً كل ليلة.</div>
+                </div>
+            </div>
+        </div>
     </div>
 
 </body>
