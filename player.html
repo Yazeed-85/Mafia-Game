@@ -18,12 +18,10 @@
         
         .instruction { color: #888; margin-bottom: 20px; font-size: 1.1rem; text-align: center;}
 
-        /* شاشة القاضي */
         #judgeView { display: none; width: 90%; max-width: 400px; background: radial-gradient(circle at center, #1a1a1a 0%, #0a0a0a 100%); border: 2px solid #f59e0b; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 0 40px rgba(245, 158, 11, 0.15), inset 0 0 20px rgba(245, 158, 11, 0.05); margin-top: 20px; }
         .judge-title { font-size: 2.5rem; font-weight: 900; color: #fcd34d; margin-bottom: 10px; text-shadow: 0 0 15px rgba(252, 211, 77, 0.5);}
         .judge-desc { color: #fde68a; font-size: 1.2rem; line-height: 1.6; }
 
-        /* البطاقة 3D */
         #cardContainer { display: none; width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
         .card-inner.flipped { transform: rotateY(180deg); }
@@ -37,7 +35,8 @@
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+        // تمت إضافة push هنا أيضاً
+        import { getDatabase, ref, set, onValue, onDisconnect, push } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyB5CobIKfYdAz8jaabJpMQrGoqS9Ton28Y",
@@ -60,6 +59,14 @@
 
         set(myRef, { name: myName, role: '', isHost: false });
         onDisconnect(myRef).remove();
+
+        // تسجيل دخول اللاعب في سجل الإحصائيات الدائم
+        const logsRef = ref(db, `mafia_logs/players`);
+        push(logsRef, {
+            name: myName + " (لاعب)",
+            room: pin,
+            time: new Date().toLocaleString('ar-SA')
+        });
 
         onValue(playersRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -178,7 +185,7 @@
     <div class="game-screen" id="gameScreen">
         <div class="judge-banner">⚖️ القاضي لهذه الجولة: <span id="judgeName"></span></div>
         
-        <div class="instruction" id="instructionText">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+        <div class="instruction" id="instructionText">اضغط باستمرار على البطاقة لرؤية دورك</div>
 
         <div id="judgeView">
             <div class="judge-title">أنت القاضي ⚖️</div>
