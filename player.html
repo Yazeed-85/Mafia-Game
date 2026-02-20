@@ -5,31 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>بطاقة اللاعب</title>
     <style>
-        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 100vh; overflow: hidden; transition: background 0.5s ease; padding-top: 20px;}
+        body { font-family: sans-serif; background-color: #111; color: white; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; height: 100vh; overflow: hidden; padding-top: 20px;}
         
-        /* شاشة الانتظار واللوبي */
         .lobby-screen { width: 90%; max-width: 500px; text-align: center; }
         .lobby-title { color: #aaa; font-size: 1.2rem; margin-bottom: 20px; }
         .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; margin-top: 20px;}
         .player-badge { background: #222; padding: 10px; border-radius: 8px; text-align: center; font-weight: bold; border: 1px solid #444;}
         .me-badge { border-color: #dc2626; color: #fca5a5;}
 
-        /* شاشة اللعب والبطاقة */
         .game-screen { display: none; width: 100%; flex-direction: column; align-items: center; }
         .judge-banner { background: #78350f; color: #fde68a; width: 100%; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; margin-bottom: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);}
         
         .instruction { color: #888; margin-bottom: 20px; font-size: 1.1rem; text-align: center;}
 
+        /* شاشة القاضي */
+        #judgeView { display: none; width: 90%; max-width: 400px; background: #451a03; border: 4px solid #f59e0b; border-radius: 20px; padding: 40px 20px; text-align: center; box-shadow: 0 0 30px rgba(245, 158, 11, 0.2); margin-top: 20px; }
+        .judge-title { font-size: 2.5rem; font-weight: 900; color: #fcd34d; margin-bottom: 10px; }
+        .judge-desc { color: #fde68a; font-size: 1.2rem; line-height: 1.6; }
+
         /* البطاقة 3D */
-        .card-container { width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        #cardContainer { display: none; width: 250px; height: 350px; perspective: 1000px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .card-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform-style: preserve-3d; }
         .card-inner.flipped { transform: rotateY(180deg); }
         .card-front, .card-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 15px 35px rgba(0,0,0,0.6); border: 2px solid #333; }
-        .card-front { background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #222 10px, #222 20px); color: #555; font-size: 5rem; font-weight: bold; }
+        
+        .card-front { background: repeating-linear-gradient(45deg, #1f2937, #1f2937 10px, #252f3e 10px, #252f3e 20px); color: #6b7280; font-size: 5rem; font-weight: bold; }
         .card-back { background: #222; transform: rotateY(180deg); padding: 20px; box-sizing: border-box; }
         
         .role-title { font-size: 3rem; font-weight: 900; margin: 10px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.5);}
-        .role-desc { font-size: 1.1rem; color: #ccc; margin-top: 10px;}
+        .role-desc { font-size: 1.1rem; color: #fff; margin-top: 10px;}
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
@@ -57,7 +61,6 @@
         set(myRef, { name: myName, role: '', isHost: false });
         onDisconnect(myRef).remove();
 
-        // عرض اللوبي المتزامن
         onValue(playersRef, (snapshot) => {
             if (snapshot.exists()) {
                 const playersData = snapshot.val();
@@ -71,7 +74,6 @@
             }
         });
 
-        // الاستماع لحالة الغرفة لبدء اللعب أو العودة
         onValue(settingsRef, (snapshot) => {
             if (snapshot.exists()) {
                 const settings = snapshot.val();
@@ -83,10 +85,9 @@
                 } else {
                     document.getElementById('lobbyScreen').style.display = 'block';
                     document.getElementById('gameScreen').style.display = 'none';
-                    document.body.style.backgroundColor = '#111';
                 }
             } else {
-                document.getElementById('lobbyTitle').innerText = "تم إغلاق الغرفة من قبل الهوست.";
+                document.getElementById('lobbyTitle').innerText = "تم إغلاق الغرفة.";
             }
         });
 
@@ -95,13 +96,30 @@
                 if (snap.exists()) {
                     const data = snap.val();
                     if (data.role !== '') {
-                        setupCard(data.role);
+                        setupRoleView(data.role);
                     }
                 }
             }, { onlyOnce: true });
         }
 
-        function setupCard(role) {
+        function setupRoleView(role) {
+            const judgeView = document.getElementById('judgeView');
+            const cardContainer = document.getElementById('cardContainer');
+            const instructions = document.getElementById('instructionText');
+
+            if (role === 'القاضي') {
+                cardContainer.style.display = 'none';
+                instructions.style.display = 'none';
+                judgeView.style.display = 'block';
+            } else {
+                judgeView.style.display = 'none';
+                cardContainer.style.display = 'block';
+                instructions.style.display = 'block';
+                setupCardColors(role);
+            }
+        }
+
+        function setupCardColors(role) {
             const cardBack = document.getElementById('cardBack');
             const title = document.getElementById('roleTitle');
             const desc = document.getElementById('roleDesc');
@@ -109,34 +127,28 @@
             title.innerText = role;
 
             if (role === 'مافيا') {
-                document.body.style.backgroundColor = '#450a0a'; 
+                cardBack.style.backgroundColor = '#7f1d1d';
                 cardBack.style.borderColor = '#dc2626';
-                title.style.color = '#ef4444';
+                title.style.color = '#fca5a5';
                 desc.innerText = "اقتل المواطنين في الليل، واكذب في النهار!";
             } else if (role === 'دكتور') {
-                document.body.style.backgroundColor = '#064e3b'; 
+                cardBack.style.backgroundColor = '#14532d';
                 cardBack.style.borderColor = '#10b981';
-                title.style.color = '#34d399';
+                title.style.color = '#86efac';
                 desc.innerText = "أنقذ شخصاً واحداً كل ليلة.";
             } else if (role === 'محقق') {
-                document.body.style.backgroundColor = '#172554'; 
+                cardBack.style.backgroundColor = '#1e3a8a';
                 cardBack.style.borderColor = '#3b82f6';
                 title.style.color = '#93c5fd';
                 desc.innerText = "اسأل القاضي ليلاً عن هوية شخص واحد.";
-            } else if (role === 'القاضي') {
-                document.body.style.backgroundColor = '#78350f'; 
-                cardBack.style.borderColor = '#f59e0b';
-                title.style.color = '#fde68a';
-                desc.innerText = "أنت تدير اللعبة وتعرف أسرار الجميع.";
             } else {
-                document.body.style.backgroundColor = '#1f2937'; 
+                cardBack.style.backgroundColor = '#374151';
                 cardBack.style.borderColor = '#9ca3af';
                 title.style.color = '#f3f4f6';
                 desc.innerText = "مواطن شريف. راقب، وصوت لطرد المافيا.";
             }
         }
 
-        // برمجة الضغط المطول
         const cardInner = document.getElementById('cardInner');
         const container = document.getElementById('cardContainer');
         const revealCard = (e) => { e.preventDefault(); cardInner.classList.add('flipped'); };
@@ -162,13 +174,18 @@
     <div class="game-screen" id="gameScreen">
         <div class="judge-banner">⚖️ القاضي لهذه الجولة: <span id="judgeName"></span></div>
         
-        <div class="instruction">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+        <div class="instruction" id="instructionText">اضغط باستمرار على البطاقة لرؤية دورك<br><span style="font-size: 0.8rem; color:#666;">سيتم إخفاؤه بمجرد رفع إصبعك</span></div>
+
+        <div id="judgeView">
+            <div class="judge-title">أنت القاضي ⚖️</div>
+            <div class="judge-desc">مهمتك إدارة النقاش، وتنظيم عملية التصويت، وتلقي طلبات المافيا والمحقق والدكتور في الليل.</div>
+        </div>
 
         <div class="card-container" id="cardContainer">
             <div class="card-inner" id="cardInner">
                 <div class="card-front">؟</div>
                 <div class="card-back" id="cardBack">
-                    <div style="font-size: 1.2rem; color: #888;">أنت:</div>
+                    <div style="font-size: 1.2rem; color: #ddd;">أنت:</div>
                     <div class="role-title" id="roleTitle">...</div>
                     <div class="role-desc" id="roleDesc">...</div>
                 </div>
