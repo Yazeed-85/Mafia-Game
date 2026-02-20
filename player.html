@@ -35,7 +35,6 @@
     </style>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        // تمت إضافة push هنا أيضاً
         import { getDatabase, ref, set, onValue, onDisconnect, push } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
         const firebaseConfig = {
@@ -58,14 +57,18 @@
         const settingsRef = ref(db, `mafia_rooms/${pin}/settings`);
 
         set(myRef, { name: myName, role: '', isHost: false });
-        onDisconnect(myRef).remove();
+        onDisconnect(myRef).remove(); // إزالة اللاعب نفسه إذا خرج لا تضر اللعبة
 
-        // تسجيل دخول اللاعب في سجل الإحصائيات الدائم
+        // حفظ الوقت باليوم والتاريخ
+        const options = { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit', hour: 'numeric', minute: 'numeric' };
+        const formattedDate = new Intl.DateTimeFormat('ar-SA', options).format(new Date());
+
         const logsRef = ref(db, `mafia_logs/players`);
         push(logsRef, {
             name: myName + " (لاعب)",
             room: pin,
-            time: new Date().toLocaleString('ar-SA')
+            time: formattedDate,
+            timestamp: Date.now()
         });
 
         onValue(playersRef, (snapshot) => {
@@ -88,6 +91,8 @@
                     document.getElementById('lobbyScreen').style.display = 'none';
                     document.getElementById('gameScreen').style.display = 'flex';
                     document.getElementById('judgeName').innerText = settings.judgeName;
+                    
+                    // استدعاء المراقبة المستمرة للدور
                     checkMyRole();
                 } else {
                     document.getElementById('lobbyScreen').style.display = 'block';
@@ -98,15 +103,16 @@
             }
         });
 
+        // تم إصلاح كود القراءة ليكون مستمراً ولا يقرأ فراغاً أبداً
         function checkMyRole() {
             onValue(myRef, (snap) => {
                 if (snap.exists()) {
                     const data = snap.val();
-                    if (data.role !== '') {
+                    if (data.role && data.role !== '') {
                         setupRoleView(data.role);
                     }
                 }
-            }, { onlyOnce: true });
+            }); // تم إزالة onlyOnce
         }
 
         function setupRoleView(role) {
